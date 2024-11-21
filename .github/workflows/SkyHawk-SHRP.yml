@@ -32,7 +32,7 @@ on:
         - boot
         - recovery
         - vendorboot
-          description: Include recovery installer zip
+        "description: Include recovery installer zip"
         type: boolean
         required: true
         default: false
