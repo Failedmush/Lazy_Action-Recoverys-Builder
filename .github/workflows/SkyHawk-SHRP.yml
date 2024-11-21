@@ -24,16 +24,15 @@ on:
         required: true
         default: 'android-14_shrp'
       BUILD_TARGET:
-        description: 'Specify your Build Target' # Pick among boot, recovery and vendor_boot
-        required: true
-        default: 'recovery'
         type: choice
+        description: Partition containing recovery ramdisk
         options:
         - boot
         - recovery
-        - vendorboot
-        
-         RECOVERY_INSTALLER:
+        - vendor_boot
+        required: true
+        default: recovery
+      RECOVERY_INSTALLER:
         description: Include recovery installer zip
         type: boolean
         required: true
