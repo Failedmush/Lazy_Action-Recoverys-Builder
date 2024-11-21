@@ -36,6 +36,8 @@ on:
         - boot
         - recovery
         - vendor_boot
+        required: true
+        default: recovery
       RECOVERY_INSTALLER:
         description: Include recovery installer zip
         type: boolean
