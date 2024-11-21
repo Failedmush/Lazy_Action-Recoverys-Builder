@@ -33,7 +33,8 @@ on:
         - recovery
         - vendorboot
         
-        Include recovery installer zip:
+         RECOVERY_INSTALLER:
+        description: Include recovery installer zip
         type: boolean
         required: true
         default: false
