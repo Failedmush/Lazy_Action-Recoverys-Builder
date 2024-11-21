@@ -32,7 +32,14 @@ on:
         options:
         - boot
         - recovery
-        - vendorboot
+        - vendor_boot
+        required: true
+        default: recovery
+      RECOVERY_INSTALLER:
+        description: Include recovery installer zip
+        type: boolean
+        required: true
+        default: false
       LDCHECK:
         description: 'Use LDCHECK'
         required: false
