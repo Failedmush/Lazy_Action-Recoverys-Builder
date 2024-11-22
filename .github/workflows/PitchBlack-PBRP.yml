@@ -34,8 +34,7 @@ on:
         - bootimage
         - recoveryimage
         - vendorbootimage
-         RECOVERY_INSTALLER:
-        description: Include recovery installer zip
+        
       LDCHECK:
         description: 'Use LDCHECK'
         required: false
