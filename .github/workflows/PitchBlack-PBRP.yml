@@ -6,7 +6,7 @@ on:
       MANIFEST_BRANCH:
         description: 'PBRP Manifest Branch'
         required: true
-        default: 'boot'
+        default: ''
         type: choice
         options:
         - android-12.1
@@ -24,7 +24,8 @@ on:
         description: 'Custom Recovery Tree Branch' # Your Device Tree Branch, make sure it's right.
         required: true
         default: 'android-14_pbrp'
-       description: 'Specify your Build Target' # Pick among boot, recovery and vendor_boot
+      BUILD_TARGET:
+        description: 'Specify your Build Target' # Pick among boot, recovery and vendor_boot
         required: true
         default: ''
         type: choice
@@ -33,11 +34,6 @@ on:
         - bootimage
         - recoveryimage
         - vendorbootimage
-      RECOVERY_INSTALLER:
-        description: Include recovery installer zip
-        type: boolean
-        required: true
-        default: false
       LDCHECK:
         description: 'Use LDCHECK'
         required: false
