@@ -46,15 +46,14 @@ on:
         - vendorboot
       LDCHECK:
         description: 'Use LDCHECK'
-        RECOVERY_INSTALLER:
-        description: Include recovery installer zip
-        type: boolean
-        required: true
-        default: false
+        required: false
+        default: 'false'
       LDCHECKPATH:
         description: 'Path of blobs to check' # Use it know what kind of dependencies your missing for decryption blobs.
         required: true
         default: 'system/bin/qseecomd'
+        RECOVERY_INSTALLER:
+        description: Include recovery installer zip
 
 jobs:
   build:
