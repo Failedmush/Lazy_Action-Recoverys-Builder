@@ -22,11 +22,11 @@ on:
       DEVICE_TREE:
         description: 'Custom Recovery Tree' # Your already made Device Tree for TWRP
         required: true
-        default: 'https://github.com/Failedmush/android_device_xiaomi_renoir-twrp'
+        default: 'https://github.com/Failedmush/twrp_device_xiaomi_renoir'
       DEVICE_TREE_BRANCH:
         description: 'Custom Recovery Tree Branch' # Your Device Tree Branch, make sure it's right.
         required: true
-        default: 'android-13'
+        default: 'android-12.1'
       DEVICE_PATH:
         description: 'Specify your Device Path' # As is, just like your DEVICE_PATH in your BoardConfig.mk
         required: true
@@ -44,6 +44,8 @@ on:
         - boot
         - recovery
         - vendorboot
+      RECOVERY_INSTALLER:
+        description: Include recovery installer zip 
       LDCHECK:
         description: 'Use LDCHECK'
         required: false
