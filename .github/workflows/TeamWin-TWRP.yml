@@ -44,13 +44,13 @@ on:
         - boot
         - recovery
         - vendorboot
-      RECOVERY_INSTALLER:
-        description: Include recovery installer zip 
       LDCHECK:
         description: 'Use LDCHECK'
-        required: false
-        default: 'false'
+        RECOVERY_INSTALLER:
+        description: Include recovery installer zip
         type: boolean
+        required: true
+        default: false
       LDCHECKPATH:
         description: 'Path of blobs to check' # Use it know what kind of dependencies your missing for decryption blobs.
         required: true
