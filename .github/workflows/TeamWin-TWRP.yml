@@ -1,192 +1,270 @@
 name: TeamWin [TWRP]
 
-on:
+  on:
   workflow_dispatch:
     inputs:
       MANIFEST_BRANCH:
-        description: 'TWRP Manifest Branch'
-        required: true
-        default: ''
         type: choice
+        description: Manifest Branch
         options:
-        - twrp-12.1
-        - twrp-11
-        - twrp-10.0-deprecated
-        - twrp-9.0
-        - twrp-8.1
-        - twrp-8.1-macOS
-        - twrp-7.1
-        - twrp-6.0
-        - twrp-5.1
-        - twrp-4.4-deprecated
-      DEVICE_TREE:
-        description: 'Custom Recovery Tree' # Your already made Device Tree for TWRP
+        
+        - 14.1
+        - 12.1
+        - 11
+        - 9.0
+        - 8.1
+        - 7.1
+        - 6.0
         required: true
-        default: 'https://github.com/Failedmush/twrp_device_xiaomi_renoir'
+        default: 12.1
+      DEVICE_TREE_URL:
+        description: Device Tree URL
+        required: true
+        default: https://github.com/Failedmush/twrp_device_xiaomi_renoir
       DEVICE_TREE_BRANCH:
-        description: 'Custom Recovery Tree Branch' # Your Device Tree Branch, make sure it's right.
+        description: Device Tree Branch
         required: true
-        default: 'android-12.1'
+        default: android-12.1
       DEVICE_PATH:
-        description: 'Specify your Device Path' # As is, just like your DEVICE_PATH in your BoardConfig.mk
+        description: Path the device tree should be synced to, relative to source root
         required: true
-        default: 'device/xiaomi/renoir'
+        default: device/xiaomi/renoir
       DEVICE_NAME:
-        description: 'Specify your Device Codename' # As is, just like your PRODUCT_DEVICE in your device tree.
+        description: Device Name from tree (should match name on twrp_<DEVICE_NAME>.mk)
         required: true
-        default: 'renoir'
+        default: renoir
+      REPOPICK_PATCHES:
+        description: (Optional) Gerrit commit numbers separated by a space to be included in the build (leave blank if not using)
+        type: string
+        required: false
       BUILD_TARGET:
-        description: 'Specify your Build Target' # Pick among boot, recovery and vendor_boot
-        required: true
-        default: 'boot'
         type: choice
+        description: Partition containing recovery ramdisk
         options:
         - boot
         - recovery
-        - vendorboot
-      LDCHECK:
-        description: 'Use LDCHECK'
-        required: false
-        default: 'false'
-      LDCHECKPATH:
-        description: 'Path of blobs to check' # Use it know what kind of dependencies your missing for decryption blobs.
+        - vendor_boot
         required: true
-        default: 'system/bin/qseecomd'
-        RECOVERY_INSTALLER:
+        default: boot
+      RECOVERY_INSTALLER:
         description: Include recovery installer zip
+        type: boolean
+        required: true
+        default: false
 
 jobs:
   build:
-    name: Build TWRP by ${{ github.actor }}
-    runs-on: ubuntu-22.04
     if: github.event.repository.owner.id == github.event.sender.id
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    permissions:
-      contents: write
+    runs-on: ubuntu-22.04
+    # You can use either of the ubuntu-20.04 or ubuntu-22.04 runner
     steps:
-    - name: Check Out
-      uses: actions/checkout@v3
-      
-    - name: Display Inputs
+    - name: Display Run Parameters
       run: |
-        echo "Displaying variables/inputs."
-        echo "Manifest Branch: ${{ github.event.inputs.MANIFEST_BRANCH }}"
-        echo "Device Tree: ${{ github.event.inputs.DEVICE_TREE }}"
-        echo "Device Branch: ${{ github.event.inputs.DEVICE_TREE_BRANCH }}"
-        echo "Device Path: ${{ github.event.inputs.DEVICE_PATH }}"
-        echo "Device Name: ${{ github.event.inputs.DEVICE_NAME }}"
-        echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}image"
-
+        echo "::group::User Environment Variables"
+        echo "Manifest Branch: ${{ inputs.MANIFEST_BRANCH }}"
+        echo "Device Tree URL: ${{ inputs.DEVICE_TREE_URL }}"
+        echo "Device Tree Branch: ${{ inputs.DEVICE_TREE_BRANCH }}"
+        echo "Device Path: ${{ inputs.DEVICE_PATH }}"
+        echo "Device Name: ${{ inputs.DEVICE_NAME }}"
+        echo "Build Target: ${{ inputs.BUILD_TARGET }}.img"
+        echo "Include Recovery Installer: ${{ inputs.RECOVERY_INSTALLER }}"
+        echo "::endgroup::"
+ 
+    # You might want to Checkout your repo first, but not mandatory
+    - name: Check Out
+      uses: actions/checkout@v4
+            
+    # Cleanup The Actions Workspace Using Custom Composite Run Actions
     - name: Cleanup
       uses: rokibhasansagar/slimhub_actions@main
-      
+      # That's it! Now use your normal steps
+
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
       with:
-        swap-size-gb: 12
-        
+        swap-size-gb: 24
+
     - name: Prepare the environment
       run: |
         sudo apt update
         sudo apt -y upgrade
-        sudo apt -y install gperf gcc-multilib gcc-10-multilib g++-multilib g++-10-multilib libc6-dev lib32ncurses5-dev x11proto-core-dev libx11-dev tree lib32z-dev libgl1-mesa-dev libxml2-utils xsltproc bc ccache lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev libxml2 lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma ncftp qemu-user-static libstdc++-10-dev libtinfo5 libgflags-dev libncurses5 python3
+        sudo apt -y install gperf gcc-multilib gcc-10-multilib g++-multilib g++-10-multilib libc6-dev lib32ncurses5-dev x11proto-core-dev libx11-dev tree lib32z-dev libgl1-mesa-dev libxml2-utils xsltproc bc ccache lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev libxml2 lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma ncftp qemu-user-static libstdc++-10-dev libtinfo5
         sudo add-apt-repository universe
+        sudo apt -y install libncurses5
+
+    - name: Check Build Tree
+      uses: haya14busa/action-cond@v1.2.1
+      id: buildtree
+      with:
+        cond: ${{ inputs.MANIFEST_BRANCH == '11' || inputs.MANIFEST_BRANCH == '12.1' }}
+        if_true: aosp
+        if_false: omni
 
     - name: Install OpenJDK
-      uses: actions/setup-java@v3
+      if: steps.buildtree.outputs.value == 'omni'
+      uses: actions/setup-java@v4
       with:
-        distribution: 'zulu'
-        java-version: '8'
+        distribution: zulu
+        java-version: 8
 
-    - name: Install Git-Repo
+    - name: Install repo
       run: |
         mkdir ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
         chmod a+x ~/bin/repo
         sudo ln -sf ~/bin/repo /usr/bin/repo
-
-    - name: Check Manifest Branch
-      uses: haya14busa/action-cond@v1
-      id: manifest
-      with:
-        cond: ${{ github.event.inputs.MANIFEST_BRANCH == 'twrp-11' || github.event.inputs.MANIFEST_BRANCH == 'twrp-12.1' }}
-        if_true: https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git
-        if_false: https://github.com/minimal-manifest-twrp/platform_manifest_twrp_omni.git
-
-    - name: Initialize Repo
+      
+    - name: Initialize repo
       run: |
-        mkdir android-recovery
-        cd android-recovery
-        git config --global user.name "lazycodebuilder"
-        git config --global user.email "154446636+lazycodebuilder@users.noreply.github.com"
-        repo init --depth=1 -u ${{ steps.manifest.outputs.value }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
-
-    - name: Set build target for upload
-      run: |
-        if [ ${{ github.event.inputs.BUILD_TARGET }} == 'recovery' ]; then
-           echo "BUILD_TARGET_NAME=recovery" >> $GITHUB_ENV
-        elif [ ${{ github.event.inputs.BUILD_TARGET }} == 'boot' ]; then
-           echo "BUILD_TARGET_NAME=boot" >> $GITHUB_ENV
-        else
-           echo "BUILD_TARGET_NAME=vendor_boot" >> $GITHUB_ENV
-        fi
-
+        mkdir workspace
+        cd workspace
+        git config --global user.name "${GITHUB_ACTOR}"
+        git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
+        repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_${{ steps.buildtree.outputs.value }}.git -b twrp-${{ inputs.MANIFEST_BRANCH }}
+          
     - name: Repo Sync
       run: |
-        cd android-recovery
         repo sync -j$(nproc --all) --force-sync
-      
-    - name: Clone Device Tree
-      run: |
-        cd android-recovery
-        git clone ${{ github.event.inputs.DEVICE_TREE }} -b ${{ github.event.inputs.DEVICE_TREE_BRANCH }} ./${{ github.event.inputs.DEVICE_PATH }}
-        cd ${{ github.event.inputs.DEVICE_PATH }}
-        echo "COMMIT_ID=$(git rev-parse HEAD)" >> $GITHUB_ENV
+      working-directory: workspace
 
-    - name: Check Build Makefile
+    - name: Create roomservice.xml
       run: |
-        cd android-recovery
-        if [ -f ${{ github.event.inputs.DEVICE_PATH }}/twrp_${{ github.event.inputs.DEVICE_NAME}}.mk ]; then
-            echo "DEVICE_MAKEFILE=twrp_${{ github.event.inputs.DEVICE_NAME }}" >> $GITHUB_ENV
-        elif [ -f ${{ github.event.inputs.DEVICE_PATH }}/omni_${{ github.event.inputs.DEVICE_NAME}}.mk ]; then
-            echo "DEVICE_MAKEFILE=omni_${{ github.event.inputs.DEVICE_NAME }}" >> $GITHUB_ENV
-        else
-            echo "No recovery makefile file found!"
+        mkdir -p .repo/local_manifests
+        cp -f ${GITHUB_WORKSPACE}/templates/*.xml .repo/local_manifests/
+      working-directory: workspace
+
+    - name: Clone device tree (TeamWin)
+      if: |
+        contains( inputs.DEVICE_TREE_URL,'/TeamWin/' )
+        && steps.buildtree.outputs.value == 'aosp'
+      run: |
+        sed -i "s%\!--project name=\"{DEVICE_TREE_URL_REPO}%project name=\"$(grep -oP '(?<=TeamWin/).*' <<< ${{ inputs.DEVICE_TREE_URL }})%g" .repo/local_manifests/roomservice.xml
+        sed -i "s%{DEVICE_PATH}%${{ inputs.DEVICE_PATH }}%g" .repo/local_manifests/roomservice.xml
+        sed -i "s%{DEVICE_REMOTE_NAME}%TeamWin%g" .repo/local_manifests/roomservice.xml
+        sed -i "s%{DEVICE_TREE_BRANCH}\"/-->%${{ inputs.DEVICE_TREE_BRANCH }}\"/>%g" .repo/local_manifests/roomservice.xml
+        repo sync -j$(nproc --all)
+      working-directory: workspace
+
+    - name: Clone device tree (Github/Other)
+      if: |
+        !contains( inputs.DEVICE_TREE_URL,'/TeamWin/' )
+        && steps.buildtree.outputs.value == 'aosp'
+      run: |
+        REMOTE_NAME=$(grep -oP '(?<=://).*(?=\.)' <<< ${{ inputs.DEVICE_TREE_URL }})
+        REMOTE_FETCH=$(grep -oP '(?<=://).*?(?=\/)' <<< ${{ inputs.DEVICE_TREE_URL }})
+        if [ "${REMOTE_NAME}" != "github" ]; then
+          sed -i "s%\!--remote name=\"{REMOTE_NAME}%remote name=\"${REMOTE_NAME}%g" .repo/local_manifests/roomservice.xml
+          sed -i "s%{REMOTE_FETCH}\"/-->%${REMOTE_FETCH}\"/>%g" .repo/local_manifests/roomservice.xml
         fi
-      continue-on-error: true
-      
-    - name: Building Image 
+        sed -i "s%\!--project name=\"{DEVICE_TREE_URL_REPO}%project name=\"$(grep -oP "(?<=${REMOTE_FETCH}/).*" <<< ${{ inputs.DEVICE_TREE_URL }})%g" .repo/local_manifests/roomservice.xml
+        sed -i "s%{DEVICE_PATH}%${{ inputs.DEVICE_PATH }}%g" .repo/local_manifests/roomservice.xml
+        sed -i "s%{DEVICE_REMOTE_NAME}%${REMOTE_NAME}%g" .repo/local_manifests/roomservice.xml
+        sed -i "s%{DEVICE_TREE_BRANCH}\"/-->%${{ inputs.DEVICE_TREE_BRANCH }}\"/>%g" .repo/local_manifests/roomservice.xml
+        repo sync -j$(nproc --all)
+      working-directory: workspace
+
+    - name: Clone device tree (Omni)
+      if: ${{ steps.buildtree.outputs.value == 'omni' }}
       run: |
-        cd android-recovery
+        git clone ${{ inputs.DEVICE_TREE_URL }} -b ${{ inputs.DEVICE_TREE_BRANCH }} ./${{ inputs.DEVICE_PATH }}
+      working-directory: workspace
+
+    - name: Sync Device Dependencies (AOSP)
+      if: ${{ steps.buildtree.outputs.value == 'aosp' }}
+      run: |
+        source build/envsetup.sh
+        lunch twrp_${{ inputs.DEVICE_NAME }}-eng
+      working-directory: workspace
+      id: syncdevicedeps
+      continue-on-error: true
+
+    - name: Sync Device Dependencies (Omni/subdevices)
+      if: |
+        steps.buildtree.outputs.value == 'omni'
+        || steps.syncdevicedeps.outcome == 'failure'
+      run: |
+        bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
+        repo sync -j$(nproc --all)
+      working-directory: workspace
+      continue-on-error: true
+
+    - name: Repopick Gerrit patches
+      if: inputs.REPOPICK_PATCHES != null
+      run: |
+        source build/envsetup.sh
+        repopick -g https://gerrit.twrp.me ${{ inputs.REPOPICK_PATCHES }}
+      working-directory: workspace
+      continue-on-error: true
+
+    - name: Include Recovery Installer
+      if: inputs.RECOVERY_INSTALLER == true && inputs.MANIFEST_BRANCH != '6.0' && inputs.BUILD_TARGET != 'vendor_boot'
+      run: |
+        case ${{ inputs.MANIFEST_BRANCH }} in
+          7.1)
+            patchNum=5080
+            ;;
+          8.1)
+            patchNum=5079
+            ;;
+          9.0)
+            patchNum=5037
+            ;;
+          11)
+            patchNum=4964
+            ;;
+          12.1)
+            patchNum=5445
+            ;;
+        esac
+        source build/envsetup.sh
+        repopick -g https://gerrit.twrp.me ${patchNum}
+      working-directory: workspace
+      id: recoveryinstaller
+      continue-on-error: true
+
+    - name: Install Python 2
+      if: ${{ steps.buildtree.outputs.value == 'omni' }}
+      run: |
+        sudo apt -y install python2
+        cd /usr/bin
+        sudo ln -sf python2 python
+
+    - name: Building recovery (AOSP)
+      if: ${{ steps.buildtree.outputs.value == 'aosp' }} 
+      run: |
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
-        echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
-      
-    - name: Set Build Date # Output will be use in Release
+        if [ ${{ inputs.RECOVERY_INSTALLER }} = true ] && [ ${{ steps.recoveryinstaller.outcome == 'success' }} ]; then
+          export USE_RECOVERY_INSTALLER=true
+          export RECOVERY_INSTALLER_PATH=bootable/recovery/installer
+        fi
+        lunch twrp_${{ inputs.DEVICE_NAME }}-eng && make $(tr -d _ <<< ${{ inputs.BUILD_TARGET }})image -j$(nproc --all)
+      working-directory: workspace
+
+    - name: Building recovery (Omni)
+      if: ${{ steps.buildtree.outputs.value == 'omni' }} 
       run: |
-        echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
-      
+        source build/envsetup.sh
+        export ALLOW_MISSING_DEPENDENCIES=true
+        if [ ${{ inputs.RECOVERY_INSTALLER }} = true ] && [ ${{ steps.recoveryinstaller.outcome == 'success' }} ]; then
+          export USE_RECOVERY_INSTALLER=true
+          export RECOVERY_INSTALLER_PATH=bootable/recovery/installer
+        fi
+        lunch ${{ steps.buildtree.outputs.value }}_${{ inputs.DEVICE_NAME }}-eng && make ${{ inputs.BUILD_TARGET }}image -j$(nproc --all)
+      working-directory: workspace
+
     - name: Upload to Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@4634c16e79c963813287e889244c50009e7f0981
       with:
         files: |
-          android-recovery/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ env.BUILD_TARGET_NAME }}.img
-        name: Unofficial TWRP for ${{ github.event.inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
+          workspace/out/target/product/${{ inputs.DEVICE_NAME }}/${{ inputs.BUILD_TARGET }}.img
+          workspace/out/target/product/${{ inputs.DEVICE_NAME }}/*installer*zip
+          workspace/out/target/product/${{ inputs.DEVICE_NAME }}/obj/PACKAGING/vendor_ramdisk_fragments_intermediates/recovery.*
+          workspace/out/target/product/${{ inputs.DEVICE_NAME }}/ramdisk-recovery.*
+        name: ${{ inputs.DEVICE_NAME }} (TWRP)
         tag_name: ${{ github.run_id }}
         body: |
-          Build: ${{ github.event.inputs.MANIFEST_BRANCH }}
-          Device: [Device Tree/Branch](${{ github.event.inputs.DEVICE_TREE }}/tree/${{ github.event.inputs.DEVICE_TREE_BRANCH }})
-          Commit: Most recent [commit](${{ github.event.inputs.DEVICE_TREE }}/commit/${{ env.COMMIT_ID }}) during building.
-
-    - name: Run LDCheck
-      if: github.event.inputs.LDCHECK == 'true'
-      run: |
-        cd tools
-        mv -n libneeds ${GITHUB_WORKSPACE}/android-recovery/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root/
-        mv -n ldcheck ${GITHUB_WORKSPACE}/android-recovery/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root/
-        cd ../android-recovery/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root
-        python3 ldcheck -p system/lib64:vendor/lib64:system/lib:vendor/lib -d ${{ github.event.inputs.LDCHECKPATH }}
-        echo "Done checking missing dependencies. Review, and reconfigure your tree."
-      continue-on-error: true
+          Manifest: ${{ inputs.MANIFEST_BRANCH }}
+          Target: ${{ inputs.BUILD_TARGET }}.img
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
